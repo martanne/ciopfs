@@ -165,6 +165,12 @@ static int ciopfs_set_orig_name_path(const char *path, const char *origpath)
 	return 0;
 }
 
+static int ciopfs_remove_orig_name(const char *path)
+{
+	debug("removing original file name of %s\n", path);
+	return lremovexattr(path, CIOPFS_ATTR_NAME);
+}
+
 static int ciopfs_getattr(const char *path, struct stat *st_data)
 {
 	char *p = map_path(path);
