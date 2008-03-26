@@ -95,6 +95,15 @@ void syslog_print(const char *fmt, ...)
 
 static void (*dolog)(const char *fmt, ...) = syslog_print;
 
+static inline bool str_contains_upper(const char *s)
+{
+	while(*s) {
+		if (isupper(*s++))
+			return true;
+	}
+	return false;
+}
+
 static inline char *strtolower(char *s)
 {
 	char *t = s;
