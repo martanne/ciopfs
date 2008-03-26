@@ -240,6 +240,10 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		struct stat st;
 		char *dname;
 		char *attrlower;
+		
+		/* skip any entry which is not all lower case for now */
+		if (str_contains_upper(de->d_name))
+			continue;
 
 		memset(&st, 0, sizeof(st));
 		st.st_ino = de->d_ino;
