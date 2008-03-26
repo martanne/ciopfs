@@ -230,6 +230,7 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	while ((de = readdir(dp)) != NULL) {
 		struct stat st;
 		char *dname;
+		char *attrlower;
 
 		memset(&st, 0, sizeof(st));
 		st.st_ino = de->d_ino;
@@ -238,11 +239,25 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		if (!strcmp(".", de->d_name) || !strcmp("..", de->d_name))
 			dname = de->d_name;
 		else {
+			/* check whether there is an original name associated with
+			 * this path and if so return it instead of the all lower
+			 * case one
+			 */
 			snprintf(dnamebuf, sizeof dnamebuf, "%s/%s", p, de->d_name);
 			debug("dnamebuf: %s de->d_name: %s\n", dnamebuf, de->d_name);
-			if (ciopfs_get_orig_name(dnamebuf, attrbuf, sizeof attrbuf) > 0)
-				dname = attrbuf;
-			else
+			if (ciopfs_get_orig_name(dnamebuf, attrbuf, sizeof attrbuf) > 0) {
+				/* we found an original name now check whether it is
+				 * still accurate and if not remove it
+				 */
+				attrlower = strtolower(strdup(attrbuf));
+				if(!strcmp(attrlower, de->d_name))
+					dname = attrbuf;
+				else {
+					dname = de->d_name;
+					ciopfs_remove_orig_name(dnamebuf);
+				}
+				free(attrlower);
+			} else
 				dname = de->d_name;
 		}
 		debug("dname: %s\n", dname);
