@@ -55,6 +55,11 @@
 #include <limits.h>
 #include <syslog.h>
 
+#ifdef HAVE_LIBICUUC
+#include <unicode/ustring.h>
+#include <unicode/uchar.h>
+#endif
+
 #define logp(format, args...) (*dolog)(format, ## args)
 
 #ifdef NDEBUG
@@ -95,35 +100,127 @@ void syslog_print(const char *fmt, ...)
 
 static void (*dolog)(const char *fmt, ...) = syslog_print;
 
+#ifdef HAVE_LIBICUUC
+
+static inline UChar *utf8_to_utf16(const char *str, int32_t *length)
+{
+	UChar *ustr;
+	UErrorCode status = U_ZERO_ERROR;
+
+	u_strFromUTF8(NULL, 0, length, str, -1, &status);
+	status = U_ZERO_ERROR;
+	(*length)++; /* for the NUL char */
+	ustr = malloc(sizeof(UChar) * (*length));
+	if (!ustr)
+		return NULL;
+	u_strFromUTF8(ustr, *length, NULL, str, -1, &status);
+	if (U_FAILURE(status)) {
+		free(ustr);
+		return NULL;
+	}
+	return ustr;
+}
+
+static inline char *utf16_to_utf8(UChar *ustr, int32_t *length)
+{
+	char *str;
+	UErrorCode status = U_ZERO_ERROR;
+
+	u_strToUTF8(NULL, 0, length, ustr, -1, &status);
+	status = U_ZERO_ERROR;
+	(*length)++; /* for the NUL char */
+	str = malloc(*length);
+	if (!str)
+		return NULL;
+	u_strToUTF8(str, *length, NULL, ustr, -1, &status);
+	if (U_FAILURE(status)) {
+		free(str);
+		return NULL;
+	}
+	return str;
+}
+
+static inline char *utf_tolower(const char *s)
+{
+	int32_t length;
+	char *str;
+	UChar *ustr;
+	UErrorCode status = U_ZERO_ERROR;
+
+	ustr = utf8_to_utf16(s, &length);
+	if (!ustr)
+		return NULL;
+	u_strToLower(ustr, length, ustr, length, NULL, &status);
+	if (U_FAILURE(status))
+		return NULL;
+	str = utf16_to_utf8(ustr, &length);
+	free(ustr);
+	return str;
+}
+
+static inline bool utf_contains_upper(const char *s)
+{
+	bool ret = false;
+	int32_t length, i;
+	UChar32 c;
+	UChar *ustr = utf8_to_utf16(s, &length);
+	if (!ustr)
+		return true;
+	for (i = 0; i < length; /* U16_NEXT post-increments */) {
+		U16_NEXT(s, i, length, c);
+		/* XXX: doesn't seem to work reliable */
+		if (u_isupper(c)) {
+			ret = true;
+			goto out;
+		}
+	}
+out:
+	free(ustr);
+	return ret;
+}
+
+#endif /* HAVE_LIBICUUC */
+
 static inline bool str_contains_upper(const char *s)
 {
+#ifdef HAVE_LIBICUUC
+	return utf_contains_upper(s);
+#else
 	while(*s) {
 		if (isupper(*s++))
 			return true;
 	}
 	return false;
+#endif
 }
 
-static inline char *strtolower(char *s)
+static inline char *str_tolower(const char *src)
 {
-	char *t = s;
-	while(*t) {
-		*t = tolower(*t);
-		t++;
-	}
-	return s;
+#ifdef HAVE_LIBICUUC
+	return utf_tolower(src);
+#else
+	char *t;
+	char *dest = malloc(strlen(src));
+	if (!dest)
+		return NULL;
+	for (t = dest; *src; src++, t++)
+		*t = tolower(*src);
+	*t = '\0';
+	return dest;
+#endif
 }
 
 static char* map_path(const char *path)
 {
+	char *p;
 	// XXX: malloc failure, memory fragmentation?
 	if (path[0] == '/') {
 		if (path[1] == '\0')
 			return strdup(".");
 		path++;
 	}
-	char *p = strdup(path);
-	strtolower(p);
+
+	p = str_tolower(path);
 	debug("%s => %s\n", path, p);
 	return p;
 }
@@ -262,8 +359,8 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				/* we found an original name now check whether it is
 				 * still accurate and if not remove it
 				 */
-				attrlower = strtolower(strdup(attrbuf));
-				if(!strcmp(attrlower, de->d_name))
+				attrlower = str_tolower(attrbuf);
+				if(attrlower && !strcmp(attrlower, de->d_name))
 					dname = attrbuf;
 				else {
 					dname = de->d_name;
