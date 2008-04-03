@@ -807,6 +807,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	debug("dir: %s\n", dirname);
-	fuse_main(args.argc, args.argv, &ciopfs_operations, NULL);
-	return 0;
+	umask(0);
+	return fuse_main(args.argc, args.argv, &ciopfs_operations, NULL);
 }
