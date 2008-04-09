@@ -44,7 +44,7 @@ install: ciopfs
 	@cp -f ciopfs ${DESTDIR}${PREFIX}/bin
 	@chmod 755 ${DESTDIR}${PREFIX}/bin/ciopfs
 	@echo creating symlink ${DESTDIR}${PREFIX}/bin/mount.ciopfs
-	@ln -s ${DESTDIR}${PREFIX}/bin/ciopfs /sbin/mount.ciopfs
+	@ln -sf ${DESTDIR}${PREFIX}/bin/ciopfs /sbin/mount.ciopfs
 #	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man1
 #	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
 #	@sed "s/VERSION/${VERSION}/g" < ciopfs.1 > ${DESTDIR}${MANPREFIX}/man1/ciopfs.1
