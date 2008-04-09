@@ -481,7 +481,7 @@ static int ciopfs_link(const char *from, const char *to)
 	int ret = 0;
 	char *f = map_path(from);
 	char *t = map_path(to);
-	int res = link(from, to);
+	int res = link(f, t);
 	if (res == -1) {
 		ret = -errno;
 		goto out;
