@@ -225,6 +225,30 @@ static char* map_path(const char *path)
 	return p;
 }
 
+/* This only works when the fs is mounted by root.
+ * Further more it relies on the fact that the euid
+ * and egid are stored per thread.
+ */
+
+static inline void enter_user_context()
+{
+	if(getuid())
+		return;
+
+	struct fuse_context *c = fuse_get_context();
+	setegid(c->gid);
+	seteuid(c->uid);
+}
+
+static inline void leave_user_context()
+{
+	if(getuid())
+		return;
+
+	seteuid(getuid());
+	setegid(getgid());
+}
+
 static ssize_t ciopfs_get_orig_name(const char *path, char *value, size_t size)
 {
 	ssize_t attrlen;
