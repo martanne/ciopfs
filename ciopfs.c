@@ -188,7 +188,7 @@ static inline bool str_contains_upper(const char *s)
 #ifdef HAVE_LIBICUUC
 	return utf_contains_upper(s);
 #else
-	while(*s) {
+	while (*s) {
 		if (isupper(*s++))
 			return true;
 	}
@@ -212,7 +212,7 @@ static inline char *str_fold(const char *src)
 #endif
 }
 
-static char* map_path(const char *path)
+static char *map_path(const char *path)
 {
 	char *p;
 	// XXX: malloc failure, memory fragmentation?
@@ -331,7 +331,7 @@ static inline void enter_user_context()
 
 static inline void leave_user_context()
 {
-	if(getuid())
+	if (getuid())
 		return;
 
 	seteuid(getuid());
@@ -452,7 +452,7 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		struct stat st;
 		char *dname;
 		char *attrlower;
-		
+
 		/* skip any entry which is not all lower case for now */
 		if (str_contains_upper(de->d_name))
 			continue;
@@ -475,7 +475,7 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				 * still accurate and if not remove it
 				 */
 				attrlower = str_fold(attrbuf);
-				if(attrlower && !strcmp(attrlower, de->d_name))
+				if (attrlower && !strcmp(attrlower, de->d_name))
 					dname = attrbuf;
 				else {
 					dname = de->d_name;
@@ -694,7 +694,7 @@ static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *f
 	int fd = open(p, fi->flags, mode);
 	leave_user_context();
 	free(p);
-	if(fd == -1)
+	if (fd == -1)
 		return -errno;
 	ciopfs_set_orig_name_fd(fd, path);
 	fi->fh = fd;
@@ -859,7 +859,7 @@ static int ciopfs_lock(const char *path, struct fuse_file_info *fi, int cmd,
 
 static void *ciopfs_init(struct fuse_conn_info *conn)
 {
-	if(chdir(dirname) == -1) {
+	if (chdir(dirname) == -1) {
 		log_print("init: %s\n", strerror(errno));
 		exit(1);
 	}
@@ -927,10 +927,10 @@ enum {
 
 static int ciopfs_opt_parse(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
-	switch(key) {
+	switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
 			if (!dirname) {
-				// XXX: realpath(char *s, NULL) is a glibc extension
+				/* XXX: realpath(char *s, NULL) is a glibc extension */
 				if (!(dirname = realpath(arg, NULL))) {
 					perror(outargs->argv[0]);
 					exit(1);
@@ -940,7 +940,7 @@ static int ciopfs_opt_parse(void *data, const char *arg, int key, struct fuse_ar
 			return 1;
 		case FUSE_OPT_KEY_OPT:
 			if (arg[0] == '-') {
-				switch(arg[1]) {
+				switch (arg[1]) {
 					case 'd':
 					case 'f':
 						dolog = stderr_print;
