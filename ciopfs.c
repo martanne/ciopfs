@@ -42,6 +42,7 @@
 #include <fuse.h>
 #include <ulockmgr.h>
 #include <sys/xattr.h>
+#include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -667,11 +668,18 @@ static int ciopfs_ftruncate(const char *path, off_t size, struct fuse_file_info 
 	return 0;
 }
 
-static int ciopfs_utime(const char *path, struct utimbuf *buf)
+static int ciopfs_utimens(const char *path, const struct timespec ts[2])
 {
 	char *p = map_path(path);
+	struct timeval tv[2];
+
+	tv[0].tv_sec = ts[0].tv_sec;
+	tv[0].tv_usec = ts[0].tv_nsec / 1000;
+	tv[1].tv_sec = ts[1].tv_sec;
+	tv[1].tv_usec = ts[1].tv_nsec / 1000;
+
 	enter_user_context();
-	int res = utime(p, buf);
+	int res = utimes(p, tv);
 	leave_user_context();
 	free(p);
 	if (res == -1)
@@ -866,7 +874,7 @@ struct fuse_operations ciopfs_operations = {
 	.chown		= ciopfs_chown,
 	.truncate	= ciopfs_truncate,
 	.ftruncate	= ciopfs_ftruncate,
-	.utime		= ciopfs_utime,
+	.utimens	= ciopfs_utimens,
 	.create		= ciopfs_create,
 	.open		= ciopfs_open,
 	.read		= ciopfs_read,
