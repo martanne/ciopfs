@@ -322,7 +322,9 @@ static int ciopfs_fgetattr(const char *path, struct stat *stbuf,
 static int ciopfs_readlink(const char *path, char *buf, size_t size)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = readlink(p, buf, size - 1);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -409,6 +411,7 @@ static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
 	int res;
 	char *p = map_path(path);
+	enter_user_context();
 	/* On Linux this could just be 'mknod(p, mode, rdev)' but this
 	   is more portable */
 	if (S_ISREG(mode)) {
@@ -421,6 +424,7 @@ static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 		res = mkfifo(p, mode);
 	} else
 		res = mknod(p, mode, rdev);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -432,7 +436,9 @@ static int ciopfs_mkdir(const char *path, mode_t mode)
 {
 	int ret = 0;
 	char *p = map_path(path);
+	enter_user_context();
 	int res = mkdir(p, mode);
+	leave_user_context();
 
 	if (res == -1) {
 		ret =  -errno;
@@ -448,7 +454,9 @@ out:
 static int ciopfs_unlink(const char *path)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = unlink(p);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -458,7 +466,9 @@ static int ciopfs_unlink(const char *path)
 static int ciopfs_rmdir(const char *path)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = rmdir(p);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -470,8 +480,9 @@ static int ciopfs_symlink(const char *from, const char *to)
 	int ret = 0;
 	char *f = map_path(from);
 	char *t = map_path(to);
+	enter_user_context();
 	int res = symlink(f, t);
-	debug("symlink from %s to %s\n", from, to);
+	leave_user_context();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -488,7 +499,9 @@ static int ciopfs_rename(const char *from, const char *to)
 	int ret = 0;
 	char *f = map_path(from);
 	char *t = map_path(to);
+	enter_user_context();
 	int res = rename(f, t);
+	leave_user_context();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -505,7 +518,9 @@ static int ciopfs_link(const char *from, const char *to)
 	int ret = 0;
 	char *f = map_path(from);
 	char *t = map_path(to);
+	enter_user_context();
 	int res = link(f, t);
+	leave_user_context();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -520,7 +535,9 @@ out:
 static int ciopfs_chmod(const char *path, mode_t mode)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = chmod(p, mode);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -530,7 +547,9 @@ static int ciopfs_chmod(const char *path, mode_t mode)
 static int ciopfs_chown(const char *path, uid_t uid, gid_t gid)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = lchown(p, uid, gid);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -540,7 +559,9 @@ static int ciopfs_chown(const char *path, uid_t uid, gid_t gid)
 static int ciopfs_truncate(const char *path, off_t size)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = truncate(p, size);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -549,7 +570,9 @@ static int ciopfs_truncate(const char *path, off_t size)
 
 static int ciopfs_ftruncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
+	enter_user_context();
 	int res = ftruncate(fi->fh, size);
+	leave_user_context();
 	if (res == -1)
 		return -errno;
 
@@ -559,7 +582,9 @@ static int ciopfs_ftruncate(const char *path, off_t size, struct fuse_file_info 
 static int ciopfs_utime(const char *path, struct utimbuf *buf)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = utime(p, buf);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -569,7 +594,9 @@ static int ciopfs_utime(const char *path, struct utimbuf *buf)
 static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int fd = open(p, fi->flags, mode);
+	leave_user_context();
 	free(p);
 	if(fd == -1)
 		return -errno;
@@ -581,7 +608,9 @@ static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *f
 static int ciopfs_open(const char *path, struct fuse_file_info *fi)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int fd = open(p, fi->flags);
+	leave_user_context();
 	free(p);
 	if (fd == -1)
 		return -errno;
@@ -612,7 +641,9 @@ static int ciopfs_write(const char *path, const char *buf, size_t size,
 static int ciopfs_statfs(const char *path, struct statvfs *stbuf)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = statvfs(p, stbuf);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -657,7 +688,9 @@ static int ciopfs_fsync(const char *path, int isdatasync, struct fuse_file_info 
 static int ciopfs_access(const char *path, int mode)
 {
   	char *p = map_path(path);
+	enter_user_context();
   	int res = access(p, mode);
+	leave_user_context();
 	free(p);
   	if (res == -1)
     		return -errno;
@@ -672,7 +705,9 @@ static int ciopfs_setxattr(const char *path, const char *name, const char *value
 		return -EPERM;
 	}
 	char *p = map_path(path);
+	enter_user_context();
 	int res = lsetxattr(p, name, value, size, flags);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -682,7 +717,9 @@ static int ciopfs_setxattr(const char *path, const char *name, const char *value
 static int ciopfs_getxattr(const char *path, const char *name, char *value, size_t size)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = lgetxattr(p, name, value, size);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -692,7 +729,9 @@ static int ciopfs_getxattr(const char *path, const char *name, char *value, size
 static int ciopfs_listxattr(const char *path, char *list, size_t size)
 {
 	char *p = map_path(path);
+	enter_user_context();
 	int res = llistxattr(p, list, size);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -706,7 +745,9 @@ static int ciopfs_removexattr(const char *path, const char *name)
 		return -EPERM;
 	}
 	char *p = map_path(path);
+	enter_user_context();
 	int res = lremovexattr(p, name);
+	leave_user_context();
 	free(p);
 	if (res == -1)
 		return -errno;
