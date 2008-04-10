@@ -54,6 +54,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <syslog.h>
+#include <grp.h>
 
 #ifdef HAVE_LIBICUUC
 #include <unicode/ustring.h>
@@ -225,6 +226,87 @@ static char* map_path(const char *path)
 	return p;
 }
 
+/* Returns the supplementary group IDs of a calling process which
+ * isued the file system operation.
+ *
+ * As indicated by Miklos Szeredi the group list is available in
+ *
+ *   /proc/$PID/task/$TID/status
+ *
+ * and fuse supplies TID in get_fuse_context()->pid.
+ *
+ * Jean-Pierre Andre found out that the same information is also
+ * available in
+ *
+ *   /proc/$TID/task/$TID/status
+ *
+ * which is used in this implementation.
+ */
+
+static size_t get_groups(gid_t **groups)
+{
+	static char key[] = "\nGroups:\t";
+	char filename[64], buf[2048], *s, *t, c = '\0';
+	int fd, num_read, matched = 0;
+	size_t n = 0;
+	gid_t *gids, grp = 0;
+	pid_t tid = fuse_get_context()->pid;
+
+	sprintf(filename, "/proc/%u/task/%u/status", tid, tid);
+	fd = open(filename, O_RDONLY);
+	if (fd == -1)
+		return 0;
+
+	for (;;) {
+		if (!c) {
+			num_read = read(fd, buf, sizeof(buf) - 1);
+			if (num_read <= 0) {
+				close(fd);
+				return 0;
+			}
+			buf[num_read] = '\0';
+			s = buf;
+		}
+
+		c = *s++;
+
+		if (key[matched] == c) {
+			if (!key[++matched])
+				break;
+
+		} else
+			matched = (key[0] == c);
+	}
+
+	close(fd);
+	t = s;
+	n = 0;
+
+	while (*t != '\n') {
+		if (*t++ == ' ')
+			n++;
+	}
+
+	if (n == 0)
+		return 0;
+
+	*groups = gids = malloc(n * sizeof(gid_t));
+	if (!gids)
+		return 0;
+	n = 0;
+
+	while ((c = *s++) != '\n') {
+		if (c >= '0' && c <= '9')
+			grp = grp*10 + c - '0';
+		else if (c == ' ') {
+			gids[n++] = grp;
+			grp = 0;
+		}
+	}
+
+	return n;
+}
+
 /* This only works when the fs is mounted by root.
  * Further more it relies on the fact that the euid
  * and egid are stored per thread.
@@ -232,10 +314,16 @@ static char* map_path(const char *path)
 
 static inline void enter_user_context()
 {
-	if(getuid())
-		return;
-
+	gid_t *groups;
+	size_t ngroups;
 	struct fuse_context *c = fuse_get_context();
+
+	if (getuid() || c->uid == 0)
+		return;
+	if ((ngroups = get_groups(&groups))) {
+		setgroups(ngroups, groups);
+		free(groups);
+	}
 	setegid(c->gid);
 	seteuid(c->uid);
 }
