@@ -857,6 +857,14 @@ static int ciopfs_lock(const char *path, struct fuse_file_info *fi, int cmd,
 			   sizeof(fi->lock_owner));
 }
 
+static void *ciopfs_init(struct fuse_conn_info *conn)
+{
+	if(chdir(dirname) == -1) {
+		log_print("init: %s\n", strerror(errno));
+		exit(1);
+	}
+	return NULL;
+}
 
 struct fuse_operations ciopfs_operations = {
 	.getattr	= ciopfs_getattr,
@@ -888,7 +896,8 @@ struct fuse_operations ciopfs_operations = {
 	.getxattr	= ciopfs_getxattr,
 	.listxattr	= ciopfs_listxattr,
 	.removexattr	= ciopfs_removexattr,
-	.lock		= ciopfs_lock
+	.lock		= ciopfs_lock,
+	.init		= ciopfs_init
 /*
  *	what about:
  *
@@ -922,7 +931,7 @@ static int ciopfs_opt_parse(void *data, const char *arg, int key, struct fuse_ar
 		case FUSE_OPT_KEY_NONOPT:
 			if (!dirname) {
 				// XXX: realpath(char *s, NULL) is a glibc extension
-				if (!(dirname = realpath(arg, NULL)) || chdir(arg)) {
+				if (!(dirname = realpath(arg, NULL))) {
 					perror(outargs->argv[0]);
 					exit(1);
 				}
@@ -967,7 +976,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Invalid arguments, see `%s -h' for usage\n", argv[0]);
 		exit(1);
 	}
-	debug("dir: %s\n", dirname);
 	umask(0);
 	return fuse_main(args.argc, args.argv, &ciopfs_operations, NULL);
 }
