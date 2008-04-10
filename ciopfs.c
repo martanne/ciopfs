@@ -142,7 +142,7 @@ static inline char *utf16_to_utf8(UChar *ustr, int32_t *length)
 	return str;
 }
 
-static inline char *utf_tolower(const char *s)
+static inline char *utf_fold(const char *s)
 {
 	int32_t length;
 	char *str;
@@ -152,7 +152,7 @@ static inline char *utf_tolower(const char *s)
 	ustr = utf8_to_utf16(s, &length);
 	if (!ustr)
 		return NULL;
-	u_strToLower(ustr, length, ustr, length, NULL, &status);
+	u_strFoldCase(ustr, length, ustr, length, U_FOLD_CASE_EXCLUDE_SPECIAL_I, &status);
 	if (U_FAILURE(status))
 		return NULL;
 	str = utf16_to_utf8(ustr, &length);
@@ -196,10 +196,10 @@ static inline bool str_contains_upper(const char *s)
 #endif
 }
 
-static inline char *str_tolower(const char *src)
+static inline char *str_fold(const char *src)
 {
 #ifdef HAVE_LIBICUUC
-	return utf_tolower(src);
+	return utf_fold(src);
 #else
 	char *t;
 	char *dest = malloc(strlen(src));
@@ -222,7 +222,7 @@ static char* map_path(const char *path)
 		path++;
 	}
 
-	p = str_tolower(path);
+	p = str_fold(path);
 	debug("%s => %s\n", path, p);
 	return p;
 }
@@ -474,7 +474,7 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				/* we found an original name now check whether it is
 				 * still accurate and if not remove it
 				 */
-				attrlower = str_tolower(attrbuf);
+				attrlower = str_fold(attrbuf);
 				if(attrlower && !strcmp(attrlower, de->d_name))
 					dname = attrbuf;
 				else {
