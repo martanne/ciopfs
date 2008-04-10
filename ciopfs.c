@@ -62,12 +62,12 @@
 #include <unicode/uchar.h>
 #endif
 
-#define logp(format, args...) (*dolog)(format, ## args)
+#define log_print(format, args...) (*dolog)(format, ## args)
 
 #ifdef NDEBUG
 # define debug(format, args...)
 #else
-# define debug logp
+# define debug log_print
 #endif
 
 #define CIOPFS_ATTR_NAME "user.filename"
