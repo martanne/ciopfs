@@ -12,16 +12,26 @@
  * 	in extended attributes named user.filename. This value
  * 	is returned upon request.
  *
+ * 	Files or directories which aren't all lowercase in the
+ * 	underlying file system are ignored. You should probably
+ * 	start with an empty data directory and copy your contents
+ * 	over.
+ *
  * Requirements:
  * 	In order to compile ciopfs, you will need both
  * 	libfuse and libattr. Furthermore if you want a case
- * 	preserving filesystem you have to make sure that the
- * 	underlaying filesystem supports extended attributes
+ * 	preserving file system you have to make sure that the
+ * 	underlying file system supports extended attributes
  * 	(for example for ext{2,3} you need a kernel with
- * 	CONFIG_EXT{2,3}_FS_XATTR enabled. You probably also
- * 	want to mount the underlaying filesystem with the
+ * 	CONFIG_EXT{2,3}_FS_XATTR enabled). You probably also
+ * 	want to mount the underlying filesystem with the
  * 	user_xattr option which allows non root users to create
  * 	extended attributes.
+ *
+ * 	If you want to work with unicode characters within file
+ * 	names, you will need libicu from www.icu-project.org.
+ * 	Otherwise disable it in config.mk, the file system will
+ * 	only work with ascii [a-zA-Z] file names.
  *
  * Compile & Install:
  * 	$EDITOR config.mk
