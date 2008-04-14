@@ -169,8 +169,7 @@ static inline bool utf_contains_upper(const char *s)
 	if (!ustr)
 		return true;
 	for (i = 0; i < length; /* U16_NEXT post-increments */) {
-		U16_NEXT(s, i, length, c);
-		/* XXX: doesn't seem to work reliable */
+		U16_NEXT(ustr, i, length, c);
 		if (u_isupper(c)) {
 			ret = true;
 			goto out;
