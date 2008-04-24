@@ -224,7 +224,7 @@ static inline char *str_fold(const char *src)
 static char *map_path(const char *path)
 {
 	char *p;
-	// XXX: malloc failure, memory fragmentation?
+	/* XXX: malloc failure, memory fragmentation? */
 	if (path[0] == '/') {
 		if (path[1] == '\0')
 			return strdup(".");
@@ -388,7 +388,7 @@ static int ciopfs_set_orig_name_path(const char *path, const char *origpath)
 	else
 		filename++;
 	debug("storing original name '%s' in '%s'\n", filename, path);
-	// XXX: setting an extended attribute on a symlink doesn't seem to work (EPERM)
+	/* XXX: setting an extended attribute on a symlink doesn't seem to work (EPERM) */
 	if (lsetxattr(path, CIOPFS_ATTR_NAME, filename, strlen(filename), 0)) {
 		debug("%s\n", strerror(errno));
 		return -errno;
