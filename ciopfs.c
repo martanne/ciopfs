@@ -368,8 +368,11 @@ static int ciopfs_set_orig_name_fd(int fd, const char *origpath)
 		filename = (char *)origpath;
 	else
 		filename++;
-	//XXX: map_path memory leak
-	debug("storing original name '%s' in '%s'\n", filename, map_path(origpath));
+#ifndef NDEBUG
+	char *path = map_path(origpath);
+	log_print("storing original name '%s' in '%s'\n", filename, path);
+	free(path);
+#endif
 	if (fsetxattr(fd, CIOPFS_ATTR_NAME, filename, strlen(filename), 0)) {
 		debug("%s\n", strerror(errno));
 		return -errno;
