@@ -55,7 +55,6 @@
 #include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -67,9 +66,17 @@
 #include <syslog.h>
 #include <grp.h>
 
-#ifdef HAVE_LIBICUUC
-#include <unicode/ustring.h>
-#include <unicode/uchar.h>
+/* each *.c file implements the following two functions:
+ *
+ * static inline bool str_contains_upper(const char *s);
+ * static inline char *str_fold(const char *s);
+ */
+#ifdef HAVE_GLIB
+# include "unicode-glib.c"
+#elif defined HAVE_LIBICUUC
+# include "unicode-icu.c"
+#else
+# include "ascii.c"
 #endif
 
 #define log_print(format, args...) (*dolog)(format, ## args)
@@ -89,7 +96,6 @@
 #ifndef FILENAME_MAX
 #define FILENAME_MAX 4096
 #endif
-
 
 static const char *dirname;
 
@@ -111,115 +117,6 @@ void syslog_print(const char *fmt, ...)
 }
 
 static void (*dolog)(const char *fmt, ...) = syslog_print;
-
-#ifdef HAVE_LIBICUUC
-
-static inline UChar *utf8_to_utf16(const char *str, int32_t *length)
-{
-	UChar *ustr;
-	UErrorCode status = U_ZERO_ERROR;
-
-	u_strFromUTF8(NULL, 0, length, str, -1, &status);
-	status = U_ZERO_ERROR;
-	(*length)++; /* for the NUL char */
-	ustr = malloc(sizeof(UChar) * (*length));
-	if (!ustr)
-		return NULL;
-	u_strFromUTF8(ustr, *length, NULL, str, -1, &status);
-	if (U_FAILURE(status)) {
-		free(ustr);
-		return NULL;
-	}
-	return ustr;
-}
-
-static inline char *utf16_to_utf8(UChar *ustr, int32_t *length)
-{
-	char *str;
-	UErrorCode status = U_ZERO_ERROR;
-
-	u_strToUTF8(NULL, 0, length, ustr, -1, &status);
-	status = U_ZERO_ERROR;
-	(*length)++; /* for the NUL char */
-	str = malloc(*length);
-	if (!str)
-		return NULL;
-	u_strToUTF8(str, *length, NULL, ustr, -1, &status);
-	if (U_FAILURE(status)) {
-		free(str);
-		return NULL;
-	}
-	return str;
-}
-
-static inline char *utf_fold(const char *s)
-{
-	int32_t length;
-	char *str;
-	UChar *ustr;
-	UErrorCode status = U_ZERO_ERROR;
-
-	ustr = utf8_to_utf16(s, &length);
-	if (!ustr)
-		return NULL;
-	u_strFoldCase(ustr, length, ustr, length, U_FOLD_CASE_EXCLUDE_SPECIAL_I, &status);
-	if (U_FAILURE(status))
-		return NULL;
-	str = utf16_to_utf8(ustr, &length);
-	free(ustr);
-	return str;
-}
-
-static inline bool utf_contains_upper(const char *s)
-{
-	bool ret = false;
-	int32_t length, i;
-	UChar32 c;
-	UChar *ustr = utf8_to_utf16(s, &length);
-	if (!ustr)
-		return true;
-	for (i = 0; i < length; /* U16_NEXT post-increments */) {
-		U16_NEXT(ustr, i, length, c);
-		if (u_isupper(c)) {
-			ret = true;
-			goto out;
-		}
-	}
-out:
-	free(ustr);
-	return ret;
-}
-
-#endif /* HAVE_LIBICUUC */
-
-static inline bool str_contains_upper(const char *s)
-{
-#ifdef HAVE_LIBICUUC
-	return utf_contains_upper(s);
-#else
-	while (*s) {
-		if (isupper(*s++))
-			return true;
-	}
-	return false;
-#endif
-}
-
-static inline char *str_fold(const char *src)
-{
-#ifdef HAVE_LIBICUUC
-	return utf_fold(src);
-#else
-	char *t;
-	char *dest = malloc(strlen(src));
-	if (!dest)
-		return NULL;
-	for (t = dest; *src; src++, t++)
-		*t = tolower(*src);
-	*t = '\0';
-	return dest;
-#endif
-}
 
 static char *map_path(const char *path)
 {

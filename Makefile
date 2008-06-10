@@ -24,6 +24,15 @@ ciopfs: ${OBJ}
 debug: clean
 	@make CFLAGS='${DEBUG_CFLAGS}'
 
+ascii: clean
+	@make CFLAGS_UNICODE='' LDFLAGS_UNICODE=''
+
+unicode-glib: clean
+	@make CFLAGS_UNICODE='${CFLAGS_GLIB}' LDFLAGS_UNICODE='${LDFLAGS_GLIB}'
+
+unicode-icu: clean
+	@make CFLAGS_UNICODE='${CFLAGS_ICU}' LDFLAGS_UNICODE='${LDFLAGS_ICU}'
+
 clean:
 	@echo cleaning
 	@rm -f ciopfs ${OBJ} ciopfs-${VERSION}.tar.gz
@@ -58,4 +67,4 @@ uninstall:
 #	@echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 #	@rm -f ${DESTDIR}${MANPREFIX}/man1/ciopfs.1
 
-.PHONY: all options clean dist install uninstall debug
+.PHONY: all options clean dist install uninstall debug ascii unicode-glib unicode-icu
