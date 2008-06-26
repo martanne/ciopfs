@@ -40,7 +40,7 @@ clean:
 dist: clean
 	@echo creating dist tarball
 	@mkdir -p ciopfs-${VERSION}
-	@cp -R Makefile config.mk ciopfs.c ciopfs-${VERSION}
+	@cp -R Makefile config.mk ciopfs.c ascii.c unicode-icu.c unicode-glib.c ciopfs-${VERSION}
 	@tar -cf ciopfs-${VERSION}.tar ciopfs-${VERSION}
 	@gzip ciopfs-${VERSION}.tar
 	@rm -rf ciopfs-${VERSION}
