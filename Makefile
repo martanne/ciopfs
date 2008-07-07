@@ -52,8 +52,9 @@ install: ciopfs
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
 	@cp -f ciopfs ${DESTDIR}${PREFIX}/bin
 	@chmod 755 ${DESTDIR}${PREFIX}/bin/ciopfs
-	@echo creating symlink ${DESTDIR}${PREFIX}/bin/mount.ciopfs
-	@ln -sf ${DESTDIR}${PREFIX}/bin/ciopfs /sbin/mount.ciopfs
+	@echo creating symlink ${DESTDIR}/sbin/mount.ciopfs
+	@mkdir -p ${DESTDIR}/sbin
+	@ln -sf ${PREFIX}/bin/ciopfs ${DESTDIR}/sbin/mount.ciopfs
 #	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man1
 #	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
 #	@sed "s/VERSION/${VERSION}/g" < ciopfs.1 > ${DESTDIR}${MANPREFIX}/man1/ciopfs.1
@@ -62,8 +63,8 @@ install: ciopfs
 uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
 	@rm -f ${DESTDIR}${PREFIX}/bin/ciopfs
-	@echo removing symlink from /sbin/mount.ciopfs
-	@rm -f /sbin/mount.ciopfs
+	@echo removing symlink from ${DESTDIR}/sbin/mount.ciopfs
+	@rm -f ${DESTDIR}/sbin/mount.ciopfs
 #	@echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 #	@rm -f ${DESTDIR}${MANPREFIX}/man1/ciopfs.1
 
