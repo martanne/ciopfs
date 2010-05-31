@@ -239,7 +239,7 @@ static inline void enter_user_context()
 	size_t ngroups;
 	struct fuse_context *c = fuse_get_context();
 
-	if (!single_threaded || getuid() || c->uid == 0)
+	if (!single_threaded || getuid())
 		return;
 	if ((ngroups = get_groups(c->pid, &groups))) {
 		setgroups(ngroups, groups);
@@ -257,6 +257,42 @@ static inline void leave_user_context()
 
 	seteuid(getuid());
 	setegid(getgid());
+}
+
+/* access(2) checks the real uid/gid not the effective one
+ * we therefore switch them if run as root and in single
+ * threaded mode.
+ *
+ * The real uid/gid are stored per process which is why we
+ * can't change them in multithreaded mode. This would lead
+ * to all sorts of race conditions and security issues when
+ * multiple users access the file system simultaneously.
+ *
+ */
+
+static inline void enter_user_context_real()
+{
+	gid_t *groups;
+	size_t ngroups;
+	struct fuse_context *c = fuse_get_context();
+
+	if (!single_threaded || geteuid())
+		return;
+	if ((ngroups = get_groups(c->pid, &groups))) {
+		setgroups(ngroups, groups);
+		free(groups);
+	}
+	setregid(c->gid, -1);
+	setreuid(c->uid, -1);
+}
+
+static inline void leave_user_context_real()
+{
+	if (!single_threaded || geteuid())
+		return;
+
+	setuid(geteuid());
+	setgid(getegid());
 }
 
 static ssize_t ciopfs_get_orig_name(const char *path, char *value, size_t size)
@@ -749,9 +785,9 @@ static int ciopfs_access(const char *path, int mode)
   	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_real();
   	int res = access(p, mode);
-	leave_user_context();
+	leave_user_context_real();
 	free(p);
   	if (res == -1)
     		return -errno;
