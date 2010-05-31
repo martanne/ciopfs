@@ -950,10 +950,7 @@ static struct fuse_opt ciopfs_opts[] = {
 int main(int argc, char *argv[])
 {
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-	if (fuse_opt_parse(&args, &dirname, ciopfs_opts, ciopfs_opt_parse)) {
-		fprintf(stderr, "Invalid arguments, see `%s -h' for usage\n", argv[0]);
-		exit(1);
-	}
+	fuse_opt_parse(&args, &dirname, ciopfs_opts, ciopfs_opt_parse);
 
 	if (single_threaded) {
 		fuse_opt_add_arg(&args, "-s");
