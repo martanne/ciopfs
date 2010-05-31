@@ -158,16 +158,15 @@ static char *map_path(const char *path)
  * which is used in this implementation.
  */
 
-static size_t get_groups(gid_t **groups)
+static size_t get_groups(pid_t pid, gid_t **groups)
 {
 	static char key[] = "\nGroups:\t";
 	char filename[64], buf[2048], *s, *t, c = '\0';
 	int fd, num_read, matched = 0;
 	size_t n = 0;
 	gid_t *gids, grp = 0;
-	pid_t tid = fuse_get_context()->pid;
 
-	sprintf(filename, "/proc/%u/task/%u/status", tid, tid);
+	sprintf(filename, "/proc/%u/task/%u/status", pid, pid);
 	fd = open(filename, O_RDONLY);
 	if (fd == -1)
 		return 0;
@@ -235,7 +234,7 @@ static inline void enter_user_context()
 
 	if (getuid() || c->uid == 0)
 		return;
-	if ((ngroups = get_groups(&groups))) {
+	if ((ngroups = get_groups(c->pid, &groups))) {
 		setgroups(ngroups, groups);
 		free(groups);
 	}
