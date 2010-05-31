@@ -374,7 +374,10 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void) offset;
 	(void) fi;
 
+	enter_user_context();
 	dp = opendir(p);
+	leave_user_context();
+
 	if (dp == NULL) {
 		ret = -errno;
 		goto out;
