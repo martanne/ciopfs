@@ -233,7 +233,7 @@ static size_t get_groups(pid_t pid, gid_t **groups)
  * simultaneously.
  */
 
-static inline void enter_user_context()
+static inline void enter_user_context_effective()
 {
 	gid_t *groups;
 	size_t ngroups;
@@ -250,7 +250,7 @@ static inline void enter_user_context()
 	seteuid(c->uid);
 }
 
-static inline void leave_user_context()
+static inline void leave_user_context_effective()
 {
 	if (!single_threaded || getuid())
 		return;
@@ -377,9 +377,9 @@ static int ciopfs_readlink(const char *path, char *buf, size_t size)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = readlink(p, buf, size - 1);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -410,9 +410,9 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void) offset;
 	(void) fi;
 
-	enter_user_context();
+	enter_user_context_effective();
 	dp = opendir(p);
-	leave_user_context();
+	leave_user_context_effective();
 
 	if (dp == NULL) {
 		ret = -errno;
@@ -473,7 +473,7 @@ static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	/* On Linux this could just be 'mknod(p, mode, rdev)' but this
 	   is more portable */
 	if (S_ISREG(mode)) {
@@ -486,7 +486,7 @@ static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 		res = mkfifo(p, mode);
 	} else
 		res = mknod(p, mode, rdev);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -500,9 +500,9 @@ static int ciopfs_mkdir(const char *path, mode_t mode)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = mkdir(p, mode);
-	leave_user_context();
+	leave_user_context_effective();
 
 	if (res == -1) {
 		ret =  -errno;
@@ -520,9 +520,9 @@ static int ciopfs_unlink(const char *path)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = unlink(p);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -534,9 +534,9 @@ static int ciopfs_rmdir(const char *path)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = rmdir(p);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -550,9 +550,9 @@ static int ciopfs_symlink(const char *from, const char *to)
 	char *t = map_path(to);
 	if (unlikely(f == NULL || t == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = symlink(f, t);
-	leave_user_context();
+	leave_user_context_effective();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -571,9 +571,9 @@ static int ciopfs_rename(const char *from, const char *to)
 	char *t = map_path(to);
 	if (unlikely(f == NULL || t == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = rename(f, t);
-	leave_user_context();
+	leave_user_context_effective();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -592,9 +592,9 @@ static int ciopfs_link(const char *from, const char *to)
 	char *t = map_path(to);
 	if (unlikely(f == NULL || t == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = link(f, t);
-	leave_user_context();
+	leave_user_context_effective();
 	if (res == -1) {
 		ret = -errno;
 		goto out;
@@ -611,9 +611,9 @@ static int ciopfs_chmod(const char *path, mode_t mode)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = chmod(p, mode);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -625,9 +625,9 @@ static int ciopfs_chown(const char *path, uid_t uid, gid_t gid)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = lchown(p, uid, gid);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -639,9 +639,9 @@ static int ciopfs_truncate(const char *path, off_t size)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = truncate(p, size);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -650,9 +650,9 @@ static int ciopfs_truncate(const char *path, off_t size)
 
 static int ciopfs_ftruncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
-	enter_user_context();
+	enter_user_context_effective();
 	int res = ftruncate(fi->fh, size);
-	leave_user_context();
+	leave_user_context_effective();
 	if (res == -1)
 		return -errno;
 
@@ -671,9 +671,9 @@ static int ciopfs_utimens(const char *path, const struct timespec ts[2])
 	tv[1].tv_sec = ts[1].tv_sec;
 	tv[1].tv_usec = ts[1].tv_nsec / 1000;
 
-	enter_user_context();
+	enter_user_context_effective();
 	int res = utimes(p, tv);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -685,9 +685,9 @@ static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *f
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int fd = open(p, fi->flags, mode);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (fd == -1)
 		return -errno;
@@ -701,9 +701,9 @@ static int ciopfs_open(const char *path, struct fuse_file_info *fi)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int fd = open(p, fi->flags);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (fd == -1)
 		return -errno;
@@ -736,9 +736,9 @@ static int ciopfs_statfs(const char *path, struct statvfs *stbuf)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = statvfs(p, stbuf);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -804,9 +804,9 @@ static int ciopfs_setxattr(const char *path, const char *name, const char *value
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = lsetxattr(p, name, value, size, flags);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -818,9 +818,9 @@ static int ciopfs_getxattr(const char *path, const char *name, char *value, size
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = lgetxattr(p, name, value, size);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -832,9 +832,9 @@ static int ciopfs_listxattr(const char *path, char *list, size_t size)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = llistxattr(p, list, size);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
@@ -850,9 +850,9 @@ static int ciopfs_removexattr(const char *path, const char *name)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	enter_user_context();
+	enter_user_context_effective();
 	int res = lremovexattr(p, name);
-	leave_user_context();
+	leave_user_context_effective();
 	free(p);
 	if (res == -1)
 		return -errno;
