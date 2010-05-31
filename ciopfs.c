@@ -106,6 +106,11 @@
 #endif
 
 static const char *dirname;
+/* whether we have forced fuse in single threaded mode (`-s' option). This happens
+ * because we can't store uid/gids per thread and the file system is accessible for
+ * multiple users via the `-o allow_other' option.
+ */
+static bool single_threaded = false;
 
 void stderr_print(const char *fmt, ...)
 {
@@ -221,9 +226,11 @@ static size_t get_groups(pid_t pid, gid_t **groups)
 	return n;
 }
 
-/* This only works when the fs is mounted by root.
- * Further more it relies on the fact that the euid
- * and egid are stored per thread.
+/* This only works when the filesystem is mounted by root and fuse
+ * operates in single threaded mode. Because the euid/egid are stored
+ * per process this would otherwise cause all sorts of race condidtions
+ * and security issues when multiple users access the file system
+ * simultaneously.
  */
 
 static inline void enter_user_context()
@@ -232,19 +239,20 @@ static inline void enter_user_context()
 	size_t ngroups;
 	struct fuse_context *c = fuse_get_context();
 
-	if (getuid() || c->uid == 0)
+	if (!single_threaded || getuid() || c->uid == 0)
 		return;
 	if ((ngroups = get_groups(c->pid, &groups))) {
 		setgroups(ngroups, groups);
 		free(groups);
 	}
+
 	setegid(c->gid);
 	seteuid(c->uid);
 }
 
 static inline void leave_user_context()
 {
-	if (getuid())
+	if (!single_threaded || getuid())
 		return;
 
 	seteuid(getuid());
@@ -907,6 +915,14 @@ static int ciopfs_opt_parse(void *data, const char *arg, int key, struct fuse_ar
 					case 'f':
 						dolog = stderr_print;
 				}
+			} else if (!strcmp("allow_other", arg)) {
+				/* disable multithreaded mode if the file system
+				 * is accessible to multiple users simultanousely
+				 * because we can't store uid/gid per thread and
+				 * this leads to all sorts of race conditions and
+				 * security issues.
+				 */
+				single_threaded = (getuid() == 0);
 			}
 			return 1;
 		case CIOPFS_OPT_HELP:
@@ -938,6 +954,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Invalid arguments, see `%s -h' for usage\n", argv[0]);
 		exit(1);
 	}
+
+	if (single_threaded) {
+		fuse_opt_add_arg(&args, "-s");
+		log_print("disabling multithreaded mode for root mounted "
+		          "filesystem that is accessible for other users "
+		          "via the `-o allow_other' option\n");
+	}
+
 	umask(0);
 	return fuse_main(args.argc, args.argv, &ciopfs_operations, NULL);
 }
