@@ -11,7 +11,7 @@ static inline bool str_contains_upper(const char *s)
 
 static inline char *str_fold(const char *src)
 {
-	char *t, *dest = malloc(strlen(src));
+	char *t, *dest = malloc(strlen(src) + 1);
 	if (!dest)
 		return NULL;
 	for (t = dest; *src; src++, t++)
