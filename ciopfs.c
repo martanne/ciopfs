@@ -387,11 +387,28 @@ static int ciopfs_readlink(const char *path, char *buf, size_t size)
 	return 0;
 }
 
+static int ciopfs_opendir(const char *path, struct fuse_file_info *fi)
+{
+	char *p = map_path(path);
+	if (unlikely(p == NULL))
+		return -ENOMEM;
+	enter_user_context_effective();
+	DIR *dp = opendir(p);
+	leave_user_context_effective();
+	free(p);
+
+	if (dp == NULL)
+		return -errno;
+
+	fi->fh = (uint64_t)(uintptr_t)dp;
+	return 0;
+}
+
 static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                           off_t offset, struct fuse_file_info *fi)
 {
 	int ret = 0;
-	DIR *dp;
+	DIR *dp = (DIR *)(uintptr_t)fi->fh;
 	struct dirent *de;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
@@ -406,18 +423,6 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	}
 
 	strcpy(dnamebuf, p);
-
-	(void) offset;
-	(void) fi;
-
-	enter_user_context_effective();
-	dp = opendir(p);
-	leave_user_context_effective();
-
-	if (dp == NULL) {
-		ret = -errno;
-		goto out;
-	}
 
 	while ((de = readdir(dp)) != NULL) {
 		struct stat st;
@@ -461,10 +466,16 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			break;
 	}
 
-	closedir(dp);
 out:
 	free(p);
 	return ret;
+}
+
+static int ciopfs_releasedir(const char *path, struct fuse_file_info *fi)
+{
+	if (fi->fh)
+		closedir((DIR *)(uintptr_t)fi->fh);
+	return 0;
 }
 
 static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
@@ -879,7 +890,9 @@ struct fuse_operations ciopfs_operations = {
 	.getattr	= ciopfs_getattr,
 	.fgetattr	= ciopfs_fgetattr,
 	.readlink	= ciopfs_readlink,
+	.opendir	= ciopfs_opendir,
 	.readdir	= ciopfs_readdir,
+	.releasedir	= ciopfs_releasedir,
 	.mknod		= ciopfs_mknod,
 	.mkdir		= ciopfs_mkdir,
 	.symlink	= ciopfs_symlink,
@@ -907,12 +920,6 @@ struct fuse_operations ciopfs_operations = {
 	.removexattr	= ciopfs_removexattr,
 	.lock		= ciopfs_lock,
 	.init		= ciopfs_init
-/*
- *	what about:
- *
- *	opendir
- *	releasedir
- */
 };
 
 static void usage(const char *name)
