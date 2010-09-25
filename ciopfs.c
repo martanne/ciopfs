@@ -425,7 +425,12 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		goto out;
 	}
 
-	strcpy(dnamebuf, p);
+	if (!dp) {
+		ret = -EBADF;
+		goto out;
+	}
+
+	seekdir(dp, offset);
 
 	while ((de = readdir(dp)) != NULL) {
 		struct stat st;
@@ -465,7 +470,7 @@ static int ciopfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				dname = de->d_name;
 		}
 		debug("dname: %s\n", dname);
-		if (filler(buf, dname, &st, 0))
+		if (filler(buf, dname, &st, telldir(dp)))
 			break;
 	}
 
