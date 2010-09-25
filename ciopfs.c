@@ -357,7 +357,9 @@ static int ciopfs_getattr(const char *path, struct stat *st_data)
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
+	enter_user_context_effective();
 	int res = lstat(p, st_data);
+	leave_user_context_effective();
 	free(p);
 	return (res == -1) ? -errno : 0;
 }
@@ -365,12 +367,13 @@ static int ciopfs_getattr(const char *path, struct stat *st_data)
 static int ciopfs_fgetattr(const char *path, struct stat *stbuf,
                            struct fuse_file_info *fi)
 {
+	enter_user_context_effective();
 	int res = fstat(fi->fh, stbuf);
+	leave_user_context_effective();
 	if (res == -1)
 		return -errno;
 	return 0;
 }
-
 
 static int ciopfs_readlink(const char *path, char *buf, size_t size)
 {
