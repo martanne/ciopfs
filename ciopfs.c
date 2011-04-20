@@ -324,8 +324,9 @@ static int ciopfs_set_orig_name_fd(int fd, const char *origpath)
 	}
 #endif
 	if (fsetxattr(fd, CIOPFS_ATTR_NAME, filename, strlen(filename), 0)) {
+		int ret = -errno;
 		debug("%s\n", strerror(errno));
-		return -errno;
+		return ret;
 	}
 	return 0;
 }
@@ -340,8 +341,9 @@ static int ciopfs_set_orig_name_path(const char *path, const char *origpath)
 	debug("storing original name '%s' in '%s'\n", filename, path);
 	/* XXX: setting an extended attribute on a symlink doesn't seem to work (EPERM) */
 	if (lsetxattr(path, CIOPFS_ATTR_NAME, filename, strlen(filename), 0)) {
+		int ret = -errno;
 		debug("%s\n", strerror(errno));
-		return -errno;
+		return ret;
 	}
 	return 0;
 }
@@ -354,55 +356,63 @@ static int ciopfs_remove_orig_name(const char *path)
 
 static int ciopfs_getattr(const char *path, struct stat *st_data)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lstat(p, st_data);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	return (res == -1) ? -errno : 0;
+	return ret;
 }
 
 static int ciopfs_fgetattr(const char *path, struct stat *stbuf,
                            struct fuse_file_info *fi)
 {
+	int ret = 0;
 	enter_user_context_effective();
 	int res = fstat(fi->fh, stbuf);
-	leave_user_context_effective();
 	if (res == -1)
-		return -errno;
-	return 0;
+		ret = -errno;
+	leave_user_context_effective();
+	return ret;
 }
 
 static int ciopfs_readlink(const char *path, char *buf, size_t size)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = readlink(p, buf, size - 1);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
 	if (res == -1)
-		return -errno;
+		return ret;
 	buf[res] = '\0';
 	return 0;
 }
 
 static int ciopfs_opendir(const char *path, struct fuse_file_info *fi)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	DIR *dp = opendir(p);
+	if (dp == NULL)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-
 	if (dp == NULL)
-		return -errno;
-
+		return ret;
 	fi->fh = (uint64_t)(uintptr_t)dp;
 	return 0;
 }
@@ -488,6 +498,7 @@ static int ciopfs_releasedir(const char *path, struct fuse_file_info *fi)
 
 static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
+	int ret = 0;
 	int res;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
@@ -503,14 +514,14 @@ static int ciopfs_mknod(const char *path, mode_t mode, dev_t rdev)
 		}
 	} else if (S_ISFIFO(mode)) {
 		res = mkfifo(p, mode);
-	} else
+	} else {
 		res = mknod(p, mode, rdev);
+	}
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-
-	return 0;
+	return ret;
 }
 
 static int ciopfs_mkdir(const char *path, mode_t mode)
@@ -521,45 +532,43 @@ static int ciopfs_mkdir(const char *path, mode_t mode)
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = mkdir(p, mode);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
-
-	if (res == -1) {
-		ret =  -errno;
-		goto out;
-	}
-
-	ciopfs_set_orig_name_path(p, path);
-out:
+	if (ret == 0)
+		ciopfs_set_orig_name_path(p, path);
 	free(p);
 	return ret;
 }
 
 static int ciopfs_unlink(const char *path)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = unlink(p);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_rmdir(const char *path)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = rmdir(p);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_symlink(const char *from, const char *to)
@@ -570,13 +579,11 @@ static int ciopfs_symlink(const char *from, const char *to)
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = symlink(from, t);
-	leave_user_context_effective();
-	if (res == -1) {
+	if (res == -1)
 		ret = -errno;
-		goto out;
-	}
-	ciopfs_set_orig_name_path(t, to);
-out:
+	leave_user_context_effective();
+	if (ret == 0)
+		ciopfs_set_orig_name_path(t, to);
 	free(t);
 	return ret;
 }
@@ -590,13 +597,11 @@ static int ciopfs_rename(const char *from, const char *to)
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = rename(f, t);
-	leave_user_context_effective();
-	if (res == -1) {
+	if (res == -1)
 		ret = -errno;
-		goto out;
-	}
-	ciopfs_set_orig_name_path(t, to);
-out:
+	leave_user_context_effective();
+	if (ret == 0)
+		ciopfs_set_orig_name_path(t, to);
 	free(f);
 	free(t);
 	return ret;
@@ -611,13 +616,11 @@ static int ciopfs_link(const char *from, const char *to)
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = link(f, t);
-	leave_user_context_effective();
-	if (res == -1) {
+	if (res == -1)
 		ret = -errno;
-		goto out;
-	}
-	ciopfs_set_orig_name_path(t, to);
-out:
+	leave_user_context_effective();
+	if (ret == 0)
+		ciopfs_set_orig_name_path(t, to);
 	free(f);
 	free(t);
 	return ret;
@@ -625,64 +628,68 @@ out:
 
 static int ciopfs_chmod(const char *path, mode_t mode)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = chmod(p, mode);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_chown(const char *path, uid_t uid, gid_t gid)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lchown(p, uid, gid);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_truncate(const char *path, off_t size)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = truncate(p, size);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_ftruncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
+	int ret = 0;
 	enter_user_context_effective();
 	int res = ftruncate(fi->fh, size);
-	leave_user_context_effective();
 	if (res == -1)
-		return -errno;
-
-	return 0;
+		ret = -errno;
+	leave_user_context_effective();
+	return ret;
 }
 
 static int ciopfs_utimens(const char *path, const struct timespec ts[2])
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
-	struct timeval tv[2];
 
+	struct timeval tv[2];
 	tv[0].tv_sec = ts[0].tv_sec;
 	tv[0].tv_usec = ts[0].tv_nsec / 1000;
 	tv[1].tv_sec = ts[1].tv_sec;
@@ -690,24 +697,27 @@ static int ciopfs_utimens(const char *path, const struct timespec ts[2])
 
 	enter_user_context_effective();
 	int res = utimes(p, tv);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int fd = open(p, fi->flags, mode);
+	if (fd == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
 	if (fd == -1)
-		return -errno;
+		return ret;
 	ciopfs_set_orig_name_fd(fd, path);
 	fi->fh = fd;
 	return 0;
@@ -715,15 +725,18 @@ static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *f
 
 static int ciopfs_open(const char *path, struct fuse_file_info *fi)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int fd = open(p, fi->flags);
+	if (fd == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
 	if (fd == -1)
-		return -errno;
+		return ret;
 	if (fi->flags & O_CREAT)
 		ciopfs_set_orig_name_fd(fd, path);
 	fi->fh = fd;
@@ -750,17 +763,17 @@ static int ciopfs_write(const char *path, const char *buf, size_t size,
 
 static int ciopfs_statfs(const char *path, struct statvfs *stbuf)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = statvfs(p, stbuf);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-
-	return 0;
+	return ret;
 }
 
 static int ciopfs_flush(const char *path, struct fuse_file_info *fi)
@@ -799,16 +812,17 @@ static int ciopfs_fsync(const char *path, int isdatasync, struct fuse_file_info 
 
 static int ciopfs_access(const char *path, int mode)
 {
+	int ret = 0;
   	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_real();
   	int res = access(p, mode);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_real();
 	free(p);
-  	if (res == -1)
-    		return -errno;
-  	return 0;
+	return ret;
 }
 
 static int ciopfs_setxattr(const char *path, const char *name, const char *value,
@@ -818,44 +832,47 @@ static int ciopfs_setxattr(const char *path, const char *name, const char *value
 		debug("denying setting value of extended attribute '%s'\n", CIOPFS_ATTR_NAME);
 		return -EPERM;
 	}
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lsetxattr(p, name, value, size, flags);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_getxattr(const char *path, const char *name, char *value, size_t size)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lgetxattr(p, name, value, size);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return res;
+	return ret;
 }
 
 static int ciopfs_listxattr(const char *path, char *list, size_t size)
 {
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = llistxattr(p, list, size);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return res;
+	return ret;
 }
 
 static int ciopfs_removexattr(const char *path, const char *name)
@@ -864,16 +881,17 @@ static int ciopfs_removexattr(const char *path, const char *name)
 		debug("denying removal of extended attribute '%s'\n", CIOPFS_ATTR_NAME);
 		return -EPERM;
 	}
+	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lremovexattr(p, name);
+	if (res == -1)
+		ret = -errno;
 	leave_user_context_effective();
 	free(p);
-	if (res == -1)
-		return -errno;
-	return 0;
+	return ret;
 }
 
 static int ciopfs_lock(const char *path, struct fuse_file_info *fi, int cmd,
