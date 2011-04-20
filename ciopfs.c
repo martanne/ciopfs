@@ -952,7 +952,8 @@ static int ciopfs_opt_parse(void *data, const char *arg, int key, struct fuse_ar
 	switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
 			if (!dirname) {
-				/* XXX: realpath(char *s, NULL) is a glibc extension */
+				/* realpath(char *s, NULL) is a POSIX.1-2008 extension, originally from GLIBC,
+				   and might be unavailible on older non-glibc systems. */
 				if (!(dirname = realpath(arg, NULL))) {
 					perror(outargs->argv[0]);
 					exit(1);
