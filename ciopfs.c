@@ -565,12 +565,11 @@ static int ciopfs_rmdir(const char *path)
 static int ciopfs_symlink(const char *from, const char *to)
 {
 	int ret = 0;
-	char *f = map_path(from);
 	char *t = map_path(to);
-	if (unlikely(f == NULL || t == NULL))
+	if (unlikely(t == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
-	int res = symlink(f, t);
+	int res = symlink(from, t);
 	leave_user_context_effective();
 	if (res == -1) {
 		ret = -errno;
@@ -578,7 +577,6 @@ static int ciopfs_symlink(const char *from, const char *to)
 	}
 	ciopfs_set_orig_name_path(t, to);
 out:
-	free(f);
 	free(t);
 	return ret;
 }
