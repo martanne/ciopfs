@@ -383,7 +383,7 @@ static int ciopfs_fgetattr(const char *path, struct stat *stbuf,
 
 static int ciopfs_readlink(const char *path, char *buf, size_t size)
 {
-	int ret = 0;
+	int ret;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
@@ -401,7 +401,7 @@ static int ciopfs_readlink(const char *path, char *buf, size_t size)
 
 static int ciopfs_opendir(const char *path, struct fuse_file_info *fi)
 {
-	int ret = 0;
+	int ret;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
@@ -706,7 +706,7 @@ static int ciopfs_utimens(const char *path, const struct timespec ts[2])
 
 static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-	int ret = 0;
+	int ret;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
@@ -725,7 +725,7 @@ static int ciopfs_create(const char *path, mode_t mode, struct fuse_file_info *f
 
 static int ciopfs_open(const char *path, struct fuse_file_info *fi)
 {
-	int ret = 0;
+	int ret;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
