@@ -847,32 +847,30 @@ static int ciopfs_setxattr(const char *path, const char *name, const char *value
 
 static int ciopfs_getxattr(const char *path, const char *name, char *value, size_t size)
 {
-	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = lgetxattr(p, name, value, size);
 	if (res == -1)
-		ret = -errno;
+		res = -errno;
 	leave_user_context_effective();
 	free(p);
-	return ret;
+	return res;
 }
 
 static int ciopfs_listxattr(const char *path, char *list, size_t size)
 {
-	int ret = 0;
 	char *p = map_path(path);
 	if (unlikely(p == NULL))
 		return -ENOMEM;
 	enter_user_context_effective();
 	int res = llistxattr(p, list, size);
 	if (res == -1)
-		ret = -errno;
+		res = -errno;
 	leave_user_context_effective();
 	free(p);
-	return ret;
+	return res;
 }
 
 static int ciopfs_removexattr(const char *path, const char *name)
