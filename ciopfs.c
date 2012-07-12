@@ -887,6 +887,11 @@ static void *ciopfs_init(struct fuse_conn_info *conn)
 		log_print("init: %s\n", strerror(errno));
 		exit(1);
 	}
+
+	if (lsetxattr(".", "user.ciopfs", VERSION, sizeof(VERSION) -1, 0) == -1 && errno == ENOTSUP)
+		log_print("warning underlying filesystem does not support extended attributes, "
+		          "converting all filenames to lower case\n");
+
 	return NULL;
 }
 
